@@ -13,8 +13,8 @@ Four site formats, two example sites each:
 |---|---|---|
 | Distribution Center | Dallas, Reno | 2.4GHz kept alive for legacy scanners, high power/wide channels for open warehouse floors |
 | Corporate Office | Austin HQ, Chicago | 2.4GHz off, narrow channels for AP-dense floors, 802.1X staff SSID |
-| Retail — standalone | Denver #0142, Columbus #0210 | Baseline RF, no neighboring-tenant contention |
-| Retail — mall-colocated | Scottsdale #0087, King of Prussia #0311 | Same WLANs as standalone, but a much lower power ceiling + narrower channels to avoid interfering with neighboring tenants' APs |
+| Retail - standalone | Denver #0142, Columbus #0210 | Baseline RF, no neighboring-tenant contention |
+| Retail - mall-colocated | Scottsdale #0087, King of Prussia #0311 | Same WLANs as standalone, but a much lower power ceiling + narrower channels to avoid interfering with neighboring tenants' APs |
 | Pop-up | NYC Holiday, Austin SXSW | Everything PSK (no RADIUS/portal backend worth standing up for a multi-week site), mesh-enabled device profile for uncabled spaces |
 
 Full reasoning for each choice is in the `comment` fields inside the YAML files.
@@ -24,25 +24,24 @@ Full reasoning for each choice is in the `comment` fields inside the YAML files.
 ```
 config/
   site_groups.yaml      org/sitegroups
-  rf_profiles.yaml       org/rftemplates    — bound to sites via rftemplate_id
-  device_profiles.yaml   org/deviceprofiles — NOT bound anywhere by push.py; see note below
-  wlan_templates.yaml    org/templates + org/wlans — bound to site groups via applies.sitegroup_ids
-  sites.yaml              org/sites
+  rf_profiles.yaml      org/rftemplates    — bound to sites via rftemplate_id
+  device_profiles.yaml  org/deviceprofiles — NOT bound anywhere by push.py; see note below
+  wlan_templates.yaml   org/templates + org/wlans — bound to site groups via applies.sitegroup_ids
+  sites.yaml            org/sites
 scripts/
-  mist_client.py   thin API wrapper + idempotent upsert-by-name
-  discover.py      read-only: confirms the token works, lists org/sites
-  push.py          idempotent create-or-update from the YAML above
-  teardown.py      deletes exactly what push.py created (dry-run by default)
+  mist_client.py        thin API wrapper + idempotent upsert-by-name
+  discover.py           read-only: confirms the token works, lists org/sites
+  push.py               idempotent create-or-update from the YAML above
+  teardown.py           deletes exactly what push.py created (dry-run by default)
 state/
-  created_objects.json   written by push.py, read by teardown.py — not the YAML, THIS is the source of truth for what to delete
+  created_objects.json  written by push.py, read by teardown.py — not the YAML, THIS is the source of truth for what to delete
 ```
 
-**Device profiles aren't bound to a site by push.py.** Mist assigns them
-per-AP (`ap.deviceprofile_id`), not per-site — there's no site-level "default
-device profile" field in the API. There's no physical/virtual hardware in
-this lab to claim, so the four `BB-DP-*` profiles are created and ready, but
-applying one means claiming a real AP into a site and setting its
-`deviceprofile_id`.
+**Device profiles aren't bound to a site by push.py.** 
+- Mist assigns them per-AP (`ap.deviceprofile_id`), not per-site - there's no site-level "default
+device profile" field in the API. 
+- There's no physical/virtual hardware in this lab to claim, so the four `BB-DP-*` profiles are created and ready, but
+applying one means claiming a real AP into a site and setting its `deviceprofile_id`.
 
 ## Wired
 
@@ -56,7 +55,7 @@ Three Network Templates (`org/networktemplates`, pull-based via `site.networktem
 Naming convention the `switch_matching` rules depend on:
 ```
 <site-name>-CORE-1, <site-name>-CORE-2   (the EVPN Multihoming core pair)
-<site-name>-IDF-1                          (the access closet)
+<site-name>-IDF-1                        (the access closet)
 ```
 e.g. `BB-DC-Dallas-01-CORE-1`, `BB-DC-Dallas-01-IDF-1`.
 
@@ -64,8 +63,7 @@ Wired VLANs intentionally use a separate numbering range (100s retail, 200s DC, 
 
 ## Adding a new store or DC
 
-You never clone a WLAN/RF template per site — that's the whole point of site
-groups. You add one entry to `sites.yaml`:
+You never clone a WLAN/RF template per site — that's the whole point of site groups. You add one entry to `sites.yaml`:
 
 ```yaml
 - name: BB-Retail-Phoenix-0455
@@ -85,75 +83,43 @@ site_vars:
     pos_psk: "<a real passphrase>"
 ```
 
-`rf_profile`, `device_profile`, and `country_code` are inherited from
-`site_defaults[site_group]` in `sites.yaml` unless you override them on the
-site itself — see the commented-out example at the bottom of that file. Run
-`python scripts/push.py`; the new site gets created, everything else comes
-back as a no-op `updated`. It's in `BB-SG-RetailStandalone`, so it picks up
-`BB-WLAN-Retail`'s SSIDs immediately — no separate WLAN step.
+`rf_profile`, `device_profile`, and `country_code` are inherited from `site_defaults[site_group]` in `sites.yaml` unless you override them on the site itself — see the commented-out example at the bottom of that file. Run `python scripts/push.py`; the new site gets created, everything else comes back as a no-op `updated`. It's in `BB-SG-RetailStandalone`, so it picks up `BB-WLAN-Retail`'s SSIDs immediately — no separate WLAN step.
 
 ## Secrets
 
-Every real WLAN passphrase lives in `config/secrets.yaml`, gitignored and
-never committed. Tracked YAML only ever holds a reference to it:
-`psk: "!secret"` in `wlan_templates.yaml` (resolved by `push.py`, keyed by
-SSID) or an omitted `pos_psk` in a site's `vars` (resolved from
-`secrets.yaml`'s `site_vars`, keyed by site name, and merged in before
-`push.py` writes `site.vars`). `config/secrets.example.yaml` is the tracked
-template — copy it to `config/secrets.yaml` and fill in real values on a
-fresh clone. `push.py` refuses to run without that file present.
+Every real WLAN passphrase lives in `config/secrets.yaml`, gitignored and never committed. Tracked YAML only ever holds a reference to it: `psk: "!secret"` in `wlan_templates.yaml` (resolved by `push.py`, keyed by SSID) or an omitted `pos_psk` in a site's `vars` (resolved from `secrets.yaml`'s `site_vars`, keyed by site name, and merged in before `push.py` writes `site.vars`). `config/secrets.example.yaml` is the tracked
+template — copy it to `config/secrets.yaml` and fill in real values on a fresh clone. `push.py` refuses to run without that file present.
 
-The RADIUS `secret: REPLACE_ME` in `wlan_templates.yaml`/`network_templates.yaml`
-is a genuine placeholder, not a real credential — it's fine to stay in git as-is
-until a real RADIUS server is wired up.
+The RADIUS `secret: REPLACE_ME` in `wlan_templates.yaml`/`network_templates.yaml` is a genuine placeholder, not a real credential — it's fine to stay in git as-is until a real RADIUS server is wired up.
 
 ## Site variables (Mist-native, not something this repo invents)
 
-Confirmed live against this org: `site.vars` is a real field (Mist just
-omits it from API responses when empty, which is why it doesn't show up
-until you set it). Any WLAN/network/gateway template field written as
-`{{key}}` resolves from the target site's own `vars` when Mist pushes config
-to that site's devices — this is already how `CHAMPS`'s `{{SSID_Name}}` SSID
-in this org works.
+Confirmed live against this org: `site.vars` is a real field (Mist just omits it from API responses when empty, which is why it doesn't show up until you set it). Any WLAN/network/gateway template field written as
+`{{key}}` resolves from the target site's own `vars` when Mist pushes config to that site's devices — this is already how `CHAMPS`'s `{{SSID_Name}}` SSID in this org works.
 
-`BB-Retail-POS` uses it for real: its `psk` in `wlan_templates.yaml` is the
-literal string `"{{pos_psk}}"`, and each retail site in `sites.yaml` defines
-its own `vars.pos_psk`. One WLAN definition, applied via one site group to
-every retail store, and every store still broadcasts a different actual
-passphrase. Same pattern works for anything else that should vary per site
-while sharing one template — a portal welcome message, a VLAN offset, a
-hostname prefix.
+`BB-Retail-POS` uses it for real: its `psk` in `wlan_templates.yaml` is the literal string `"{{pos_psk}}"`, and each retail site in `sites.yaml` defines its own `vars.pos_psk`. One WLAN definition, applied via one site group to every retail store, and every store still broadcasts a different actual passphrase. Same pattern works for anything else that should vary per site while sharing one template — a portal welcome message, a VLAN offset, a hostname prefix.
 
-The API only round-trips the literal `{{pos_psk}}` string back to you — the
-substitution happens when Mist renders config for that site's actual
-devices, so there's nothing to see over the API without a claimed AP.
+The API only round-trips the literal `{{pos_psk}}` string back to you — the substitution happens when Mist renders config for that site's actual devices, so there's nothing to see over the API without a claimed AP.
 
 ## Usage
 
 ```bash
 pip install -r requirements.txt
-python scripts/discover.py   # sanity check: token works, lists current sites
-python scripts/push.py       # idempotent — safe to re-run after editing YAML
-python scripts/teardown.py           # dry run, lists what would be deleted
-python scripts/teardown.py --yes     # actually deletes it
+python scripts/discover.py        # sanity check: token works, lists current sites
+python scripts/push.py            # idempotent — safe to re-run after editing YAML
+python scripts/teardown.py        # dry run, lists what would be deleted
+python scripts/teardown.py --yes  # actually deletes it
 ```
 
-`push.py` matches every object by `name` and updates in place rather than
-duplicating, so editing a YAML file and re-running is the normal workflow —
-no separate "diff" step needed.
+`push.py` matches every object by `name` and updates in place rather than duplicating, so editing a YAML file and re-running is the normal workflow — no separate "diff" step needed.
 
 ## Should this live in YAML instead of just clicking around in Mist?
 
-For a one-off demo, no — Mist's own template/site-group model already gives
-you reuse (bind one WLAN template to a site group, all 6 stores update
-together) and there's a real UI to look at while you build it. Don't reach
-for YAML+scripts just because it feels more rigorous.
+For a one-off demo, no - Mist's own template/site-group model already gives you reuse (bind one WLAN template to a site group, all 6 stores update together) and there's a real UI to look at while you build it. Don't reach for YAML+scripts just because it feels more rigorous.
 
 It earns its keep here for a few specific reasons that apply to *this* repo:
 
-- **This is a shared org.** Other engineers have live work in it (the
-  `CMS Lab` site is explicitly annotated "please reach out before doing
-  changes"). A script that only touches objects it created and tracks them in
+- **This is a shared org.** Other engineers have live work in it. A script that only touches objects it created and tracks them in
   `state/created_objects.json` is a much safer way to add and later fully
   remove a 24-object footprint than doing it by hand and hoping you remember
   every name later.
@@ -171,8 +137,4 @@ It earns its keep here for a few specific reasons that apply to *this* repo:
   what a change will do before `push.py` runs, which matters more here than
   it would in a personal sandbox.
 
-What it's *not* a substitute for: Mist's own template/site-group inheritance,
-which already handles "update once, apply everywhere" for anything you're
-willing to manage by hand in the UI. This repo only adds value on top of that
-for the specific things above — repeatable teardown, shared-org safety, and
-keeping the "why" attached to the config.
+What it's *not* a substitute for: Mist's own template/site-group inheritance, which already handles "update once, apply everywhere" for anything you're willing to manage by hand in the UI. This repo only adds value on top of that for the specific things above — repeatable teardown, shared-org safety, and keeping the "why" attached to the config.
