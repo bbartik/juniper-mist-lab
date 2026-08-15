@@ -1,0 +1,49 @@
+# Device Profiles (org/deviceprofiles, type=ap). Unlike RF/WLAN templates,
+# these are NOT bound at the site level via the API — they're assigned per
+# device (ap.deviceprofile_id) once an AP is claimed into a site. There's no
+# physical/virtual hardware in this lab to claim, so these exist as reusable
+# definitions ready to assign; see README for how to apply one to a real AP.
+device_profiles:
+
+  - name: BB-DP-DistributionCenter-AP
+    comment: >
+      Mesh enabled — warehouses routinely have areas (far corners, mezzanines)
+      without a wired drop nearby, and mesh fills those gaps off a wired base
+      AP. BLE beacon on for asset-tracking tags on forklifts/pallets.
+    type: ap
+    mesh:
+      enabled: true
+      role: base
+    ble_config:
+      beacon_enabled: true
+
+  - name: BB-DP-CorporateOffice-AP
+    comment: Fully wired office deployment — no mesh, no BLE beaconing needed.
+    type: ap
+    mesh:
+      enabled: false
+    ble_config:
+      beacon_enabled: false
+
+  - name: BB-DP-Retail-AP
+    comment: >
+      Shared by standalone and mall-colocated stores — the RF profile is what
+      differs between those formats, not the device config. BLE on for
+      in-store analytics / proximity marketing, a common retail use case.
+    type: ap
+    mesh:
+      enabled: false
+    ble_config:
+      beacon_enabled: true
+
+  - name: BB-DP-PopUp-AP
+    comment: >
+      Mesh enabled since pop-up spaces frequently have zero pre-run cabling
+      beyond a single uplink drop. Plain DHCP — no static IP planning worth
+      doing for a site that exists for a few weeks.
+    type: ap
+    mesh:
+      enabled: true
+      role: base
+    ip_config:
+      type: dhcp

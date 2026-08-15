@@ -1,0 +1,110 @@
+# RF Templates (org/rftemplates). Bound to sites directly via site.rftemplate_id
+# (RF templates are "pull" — the site points at the template — unlike WLAN
+# templates, which are "push" via applies.sitegroup_ids).
+rf_profiles:
+
+  - name: BB-RF-DistributionCenter
+    comment: >
+      Large open warehouse floors, high ceilings, sparse AP density.
+      2.4GHz kept on for legacy handheld scanners (Zebra/Honeywell). Wide
+      channels and a high power ceiling to cover long throw distances
+      between racking aisles.
+    band_24:
+      disabled: false
+      bandwidth: 20
+      power_min: 14
+      power_max: 20
+    band_5:
+      disabled: false
+      bandwidth: 40
+      power_min: 14
+      power_max: 23
+    band_6:
+      disabled: false
+      bandwidth: 80
+      power_min: 12
+      power_max: 21
+
+  - name: BB-RF-CorporateOffice
+    comment: >
+      Dense AP deployment in a typical office floor plate. 2.4GHz disabled
+      (modern best practice, offload to 5/6). Narrow 20MHz channels and a
+      lower power ceiling maximize channel reuse and reduce co-channel
+      interference between closely-spaced APs.
+    band_24:
+      disabled: true
+      bandwidth: 20
+    band_5:
+      disabled: false
+      bandwidth: 20
+      power_min: 8
+      power_max: 14
+    band_6:
+      disabled: false
+      bandwidth: 80
+      power_min: 8
+      power_max: 14
+
+  - name: BB-RF-RetailStandalone
+    comment: >
+      Free-standing store, no neighboring-tenant RF contention to worry
+      about. Standard moderate power and mid-width channels — this is the
+      "no special constraints" baseline profile.
+    band_24:
+      disabled: false
+      bandwidth: 20
+      power_min: 10
+      power_max: 17
+    band_5:
+      disabled: false
+      bandwidth: 40
+      power_min: 10
+      power_max: 17
+    band_6:
+      disabled: false
+      bandwidth: 80
+      power_min: 10
+      power_max: 17
+
+  - name: BB-RF-RetailMall
+    comment: >
+      Store co-located inside a shared mall RF environment with many other
+      tenants' APs nearby. 2.4GHz disabled (band is usually saturated in
+      malls). Narrow channels and a deliberately LOW power ceiling keep the
+      cell small so it doesn't bleed into neighboring stores' spaces and
+      cause cross-tenant co-channel interference.
+    band_24:
+      disabled: true
+      bandwidth: 20
+    band_5:
+      disabled: false
+      bandwidth: 20
+      power_min: 8
+      power_max: 11
+    band_6:
+      disabled: false
+      bandwidth: 40
+      power_min: 8
+      power_max: 11
+
+  - name: BB-RF-PopUp
+    comment: >
+      Short-term kiosk/event space — never gets a real RF survey. Deliberately
+      conservative defaults (moderate width, let RRM auto-manage power/channel)
+      rather than tuned values, since the space and neighbors are unknown and
+      the site won't be around long enough to justify tuning.
+    band_24:
+      disabled: false
+      bandwidth: 20
+      power_min: 8
+      power_max: 17
+    band_5:
+      disabled: false
+      bandwidth: 40
+      power_min: 8
+      power_max: 17
+    band_6:
+      disabled: false
+      bandwidth: 40
+      power_min: 8
+      power_max: 17

@@ -1,0 +1,143 @@
+# Sites (org/sites). Each references an rf_profile (bound via site.rftemplate_id)
+# and a site_group (bound via site.sitegroup_ids, which is what makes it pick
+# up the matching WLAN template through applies.sitegroup_ids). device_profile
+# is listed for documentation only — see device_profiles.yaml for why it isn't
+# bound here.
+#
+# site_defaults: per-site-group fallback values. A site only needs to state
+# what's actually specific to it (name/address/timezone/vars) — rf_profile,
+# device_profile, and country_code come from its site_group's defaults unless
+# explicitly overridden on the site itself. This is what makes adding a new
+# store a ~5 line entry instead of a full block.
+#
+# vars: Mist's native per-site template variables (confirmed live — see
+# README). Any WLAN/network/gateway template field written as "{{key}}" gets
+# resolved from the site's own vars at config-push time. BB-Retail-POS's psk
+# is "{{pos_psk}}" in wlan_templates.yaml — one shared WLAN definition across
+# every retail site, each broadcasting a different actual passphrase. The
+# real pos_psk value per site lives in config/secrets.yaml (gitignored), not
+# here — push.py merges it in before writing site.vars.
+#
+# latlng: the map pin. `address` is just a text label — Mist only derives
+# latlng from it when a human geocodes it via the UI's "Location Search" box.
+# Since we write sites via the API directly, we set latlng explicitly or the
+# map falls back to a default location instead of the real site.
+
+site_defaults:
+  BB-SG-DistributionCenters:
+    country_code: US
+    rf_profile: BB-RF-DistributionCenter
+    device_profile: BB-DP-DistributionCenter-AP
+    network_template: BB-NT-DistributionCenter
+  BB-SG-CorporateOffices:
+    country_code: US
+    rf_profile: BB-RF-CorporateOffice
+    device_profile: BB-DP-CorporateOffice-AP
+    network_template: BB-NT-CorporateOffice
+  BB-SG-RetailStandalone:
+    country_code: US
+    rf_profile: BB-RF-RetailStandalone
+    device_profile: BB-DP-Retail-AP
+    network_template: BB-NT-Retail
+  BB-SG-RetailMall:
+    country_code: US
+    rf_profile: BB-RF-RetailMall
+    device_profile: BB-DP-Retail-AP
+    network_template: BB-NT-Retail
+  BB-SG-PopUpStores:
+    country_code: US
+    rf_profile: BB-RF-PopUp
+    device_profile: BB-DP-PopUp-AP
+    # No network_template — pop-ups weren't in scope for the wired build.
+
+sites:
+
+  - name: BB-DC-Dallas-01
+    address: "Dallas, TX, USA"
+    latlng: { lat: 32.7767, lng: -96.7970 }
+    timezone: America/Chicago
+    site_group: BB-SG-DistributionCenters
+    notes: "BB retail lab - Distribution Center - safe to delete"
+
+  - name: BB-DC-Reno-02
+    address: "Reno, NV, USA"
+    latlng: { lat: 39.5296, lng: -119.8138 }
+    timezone: America/Los_Angeles
+    site_group: BB-SG-DistributionCenters
+    notes: "BB retail lab - Distribution Center (western regional DC) - safe to delete"
+
+  - name: BB-Corp-Austin-HQ
+    address: "Austin, TX, USA"
+    latlng: { lat: 30.2672, lng: -97.7431 }
+    timezone: America/Chicago
+    site_group: BB-SG-CorporateOffices
+    notes: "BB retail lab - Corporate HQ - safe to delete"
+
+  - name: BB-Corp-Chicago-Regional
+    address: "Chicago, IL, USA"
+    latlng: { lat: 41.8781, lng: -87.6298 }
+    timezone: America/Chicago
+    site_group: BB-SG-CorporateOffices
+    notes: "BB retail lab - Regional office - safe to delete"
+
+  - name: BB-Retail-Denver-0142
+    address: "Denver, CO, USA"
+    latlng: { lat: 39.7392, lng: -104.9903 }
+    timezone: America/Denver
+    site_group: BB-SG-RetailStandalone
+    notes: "BB retail lab - Standalone store #0142 - safe to delete"
+    vars:
+      store_number: "0142"
+      # pos_psk lives in config/secrets.yaml (gitignored), keyed by this site name
+
+  - name: BB-Retail-Columbus-0210
+    address: "Columbus, OH, USA"
+    latlng: { lat: 39.9612, lng: -82.9988 }
+    timezone: America/New_York
+    site_group: BB-SG-RetailStandalone
+    notes: "BB retail lab - Standalone store #0210 - safe to delete"
+    vars:
+      store_number: "0210"
+
+  - name: BB-Retail-Mall-Scottsdale-0087
+    address: "Scottsdale Fashion Square, Scottsdale, AZ, USA"
+    latlng: { lat: 33.5024, lng: -111.9267 }
+    timezone: America/Phoenix
+    site_group: BB-SG-RetailMall
+    notes: "BB retail lab - Mall-colocated store #0087 - safe to delete"
+    vars:
+      store_number: "0087"
+
+  - name: BB-Retail-Mall-KingOfPrussia-0311
+    address: "King of Prussia Mall, King of Prussia, PA, USA"
+    latlng: { lat: 40.0893, lng: -75.3971 }
+    timezone: America/New_York
+    site_group: BB-SG-RetailMall
+    notes: "BB retail lab - Mall-colocated store #0311 - safe to delete"
+    vars:
+      store_number: "0311"
+
+  - name: BB-PopUp-NYC-Holiday-01
+    address: "Manhattan, NY, USA"
+    latlng: { lat: 40.7580, lng: -73.9855 }
+    timezone: America/New_York
+    site_group: BB-SG-PopUpStores
+    notes: "BB retail lab - Holiday season pop-up - safe to delete"
+
+  - name: BB-PopUp-Austin-SXSW-02
+    address: "Austin, TX, USA"
+    latlng: { lat: 30.2634, lng: -97.7385 }
+    timezone: America/Chicago
+    site_group: BB-SG-PopUpStores
+    notes: "BB retail lab - SXSW event pop-up - safe to delete"
+
+  # --- Example of adding a new store: just this block, then `python scripts/push.py` ---
+  # - name: BB-Retail-Phoenix-0455
+  #   address: "Phoenix, AZ, USA"
+  #   latlng: { lat: 33.4484, lng: -112.0740 }
+  #   timezone: America/Phoenix
+  #   site_group: BB-SG-RetailStandalone
+  #   notes: "New store example"
+  #   vars:
+  #     store_number: "0455"
+  #   # pos_psk for this site goes in config/secrets.yaml, not here

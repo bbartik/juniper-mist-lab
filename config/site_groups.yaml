@@ -1,0 +1,9 @@
+# Site Groups let WLAN Templates (and other org templates) target a whole
+# category of sites at once via `applies.sitegroup_ids`, instead of being
+# bound to individual sites one by one.
+site_groups:
+  - name: BB-SG-DistributionCenters
+  - name: BB-SG-CorporateOffices
+  - name: BB-SG-RetailStandalone
+  - name: BB-SG-RetailMall
+  - name: BB-SG-PopUpStores

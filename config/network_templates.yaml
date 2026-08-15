@@ -1,0 +1,173 @@
+# Network Templates (org/networktemplates). Unlike WLAN templates, these are
+# PULL-based — one per site via site.networktemplate_id, same mechanism as
+# rftemplate_id. See sites.yaml's site_defaults for the binding.
+#
+# Scope boundary: this defines VLANs and per-port-role behavior
+# (switch_matching, matched by switch hostname regex), which is fully
+# buildable without hardware. It does NOT configure the actual EVPN
+# Multihoming underlay (BGP peering, loopbacks, ESI-LAG member selection) —
+# that's wizard-driven in Mist and tied to physical port/cabling choices made
+# when real switches are claimed. What's here means Core/IDF ports already
+# have correct role-based config the moment that happens, provided switches
+# are named to match the switch_matching rules below.
+#
+# Switch naming convention these templates depend on:
+#   <site-name>-CORE-1, <site-name>-CORE-2   (the EVPN Multihoming core pair)
+#   <site-name>-IDF-1                          (the access closet)
+# e.g. BB-DC-Dallas-01-CORE-1, BB-DC-Dallas-01-IDF-1
+
+network_templates:
+
+  - name: BB-NT-Retail
+    comment: >
+      Single Virtual Chassis stack (1-3 switches), no core/IDF split needed —
+      one flat port map. Port ranges are illustrative; adjust to match actual
+      hardware once switches are claimed.
+    networks:
+      wired_mgmt:  { vlan_id: "100" }
+      wired_pos:   { vlan_id: "110" }   # wired registers / PIN pads
+      wired_staff: { vlan_id: "112" }   # back-office PCs
+      wired_iot:   { vlan_id: "116" }   # digital signage, wired cameras, receipt printers
+      # Wireless VLANs (must match wlan_templates.yaml) so AP uplink ports can trunk them
+      wifi_retail_pos:   { vlan_id: "30" }
+      wifi_retail_staff: { vlan_id: "32" }
+      wifi_retail_guest: { vlan_id: "35" }
+    port_usages:
+      pos:
+        mode: access
+        native_network: wired_pos
+      staff:
+        mode: access
+        native_network: wired_staff
+      iot:
+        mode: access
+        native_network: wired_iot
+      ap:
+        mode: trunk
+        native_network: wired_mgmt
+        networks: [wifi_retail_pos, wifi_retail_staff, wifi_retail_guest]
+      uplink:
+        mode: trunk
+        all_networks: true
+    switch_matching:
+      enable: true
+      rules:
+        - name: default
+          port_config:
+            "ge-0/0/0-3": { usage: pos }
+            "ge-0/0/4-7": { usage: staff }
+            "ge-0/0/8-9": { usage: iot }
+            "ge-0/0/10-21": { usage: ap }
+            "ge-0/0/22-23": { usage: uplink }
+          ip_config: { type: dhcp, network: default }
+
+  - name: BB-NT-DistributionCenter
+    comment: >
+      Core of 2 (EVPN Multihoming pair) + 1 IDF. Core ports split between the
+      peer link and downlinks to each IDF; IDF ports split between dual
+      uplinks to both core members (for ESI-LAG) and end-device access.
+    networks:
+      wired_mgmt: { vlan_id: "200" }
+      wired_ops:  { vlan_id: "210" }   # WMS terminals, label printers, handheld charging docks
+      wired_iot:  { vlan_id: "216" }   # dock cameras, conveyor/robotics controllers
+      wifi_dc_ops: { vlan_id: "20" }
+      wifi_dc_iot: { vlan_id: "25" }
+    port_usages:
+      ops:
+        mode: access
+        native_network: wired_ops
+      iot:
+        mode: access
+        native_network: wired_iot
+      ap:
+        mode: trunk
+        native_network: wired_mgmt
+        networks: [wifi_dc_ops, wifi_dc_iot]
+      core_peer:
+        mode: trunk
+        all_networks: true
+        # Core-to-core peer link (ICL / EVPN Multihoming peering)
+      core_downlink:
+        mode: trunk
+        all_networks: true
+        # Core-facing side of the core<->IDF links
+      idf_uplink:
+        mode: trunk
+        all_networks: true
+        # IDF-facing side — one port to each core member for ESI-LAG dual-homing
+    switch_matching:
+      enable: true
+      rules:
+        - name: core-switches
+          match_name: "^BB-DC-.*-CORE.*"
+          port_config:
+            "ge-0/0/0": { usage: core_peer }
+            "ge-0/0/1-2": { usage: core_downlink }
+        - name: idf-switches
+          match_name: "^BB-DC-.*-IDF.*"
+          port_config:
+            "ge-0/0/0-1": { usage: idf_uplink }
+            "ge-0/0/2-9": { usage: ops }
+            "ge-0/0/10-13": { usage: iot }
+            "ge-0/0/14-21": { usage: ap }
+        - name: default
+
+  - name: BB-NT-CorporateOffice
+    comment: >
+      Same Core(2)+IDF(1) shape as the DC template, different VLANs/port mix
+      for an office floor. Wired staff ports carry a RADIUS placeholder for
+      802.1X, matching the wireless staff SSID's auth story.
+    networks:
+      wired_mgmt:  { vlan_id: "300" }
+      wired_staff: { vlan_id: "310" }
+      wired_guest: { vlan_id: "315" }   # wired guest drops in conference rooms
+      wired_iot:   { vlan_id: "316" }
+      wifi_corp_staff: { vlan_id: "10" }
+      wifi_corp_guest: { vlan_id: "15" }
+      wifi_corp_iot:   { vlan_id: "18" }
+    port_usages:
+      staff:
+        mode: access
+        native_network: wired_staff
+      guest:
+        mode: access
+        native_network: wired_guest
+      iot:
+        mode: access
+        native_network: wired_iot
+      ap:
+        mode: trunk
+        native_network: wired_mgmt
+        networks: [wifi_corp_staff, wifi_corp_guest, wifi_corp_iot]
+      core_peer:
+        mode: trunk
+        all_networks: true
+      core_downlink:
+        mode: trunk
+        all_networks: true
+      idf_uplink:
+        mode: trunk
+        all_networks: true
+    switch_matching:
+      enable: true
+      rules:
+        - name: core-switches
+          match_name: "^BB-Corp-.*-CORE.*"
+          port_config:
+            "ge-0/0/0": { usage: core_peer }
+            "ge-0/0/1-2": { usage: core_downlink }
+        - name: idf-switches
+          match_name: "^BB-Corp-.*-IDF.*"
+          port_config:
+            "ge-0/0/0-1": { usage: idf_uplink }
+            "ge-0/0/2-13": { usage: staff }
+            "ge-0/0/14-17": { usage: guest }
+            "ge-0/0/18-19": { usage: iot }
+            "ge-0/0/20-23": { usage: ap }
+        - name: default
+    radius_config:
+      enabled: true
+      auth_servers:
+        - host: 10.255.255.1
+          port: 1812
+          secret: REPLACE_ME

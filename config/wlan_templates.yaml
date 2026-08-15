@@ -1,0 +1,161 @@
+# WLAN Templates (org/templates) + their child WLANs (org/wlans, referencing
+# template_id). Templates are "push" — applies.sitegroup_ids says which site
+# groups get these SSIDs.
+#
+# Auth strategy (per user decision): PSK where there's no RADIUS infra to
+# lean on (DC, pop-up), 802.1X where there is (corporate + retail staff).
+# The 802.1X entries point at a PLACEHOLDER RADIUS server (10.255.255.1) —
+# it will not authenticate anyone until pointed at a real NPS/ISE/FreeRADIUS
+# server. That's intentional: it shows the correct shape without inventing
+# working infrastructure.
+#
+# psk: "!secret" is a sentinel, not a real value — push.py resolves it from
+# config/secrets.yaml (gitignored) at push time, keyed by ssid. Real PSKs
+# never appear in this tracked file. BB-Retail-POS's "{{pos_psk}}" below is
+# a different thing entirely — genuine Mist-native site-variable
+# substitution (see sites.yaml/README), resolved by Mist itself, not by us.
+
+wlan_templates:
+
+  - name: BB-WLAN-DistributionCenter
+    applies_sitegroups: [BB-SG-DistributionCenters]
+    wlans:
+      - ssid: BB-DC-Ops
+        comment: >
+          Handheld scanners (Zebra/Honeywell) and forklift terminals. WPA2-only
+          pairwise — a lot of this hardware still doesn't support WPA3.
+        vlan_id: 20
+        vlan_enabled: true
+        bands: ["24", "5"]
+        auth:
+          type: psk
+          psk: "!secret"
+          pairwise: ["wpa2"]
+
+      - ssid: BB-DC-IoT
+        comment: Fixed cameras, RFID readers, dock-door sensors, forklift telemetry.
+        vlan_id: 25
+        vlan_enabled: true
+        bands: ["5"]
+        auth:
+          type: psk
+          psk: "!secret"
+          pairwise: ["wpa2", "wpa3"]
+      # No guest SSID here on purpose — DCs aren't visitor-facing.
+
+  - name: BB-WLAN-CorporateOffice
+    applies_sitegroups: [BB-SG-CorporateOffices]
+    wlans:
+      - ssid: BB-Corp-Staff
+        comment: >
+          802.1X against corporate IdP/NPS. auth_servers is a placeholder —
+          replace host/secret with the real RADIUS server before go-live.
+        vlan_id: 10
+        vlan_enabled: true
+        bands: ["5", "6"]
+        auth:
+          type: eap
+        auth_servers:
+          - host: 10.255.255.1
+            port: 1812
+            secret: REPLACE_ME
+
+      - ssid: BB-Corp-Guest
+        comment: Email-capture captive portal, isolated from the corporate VLANs.
+        vlan_id: 15
+        vlan_enabled: true
+        bands: ["5"]
+        auth:
+          type: open
+        portal:
+          enabled: true
+          auth: email
+          email_enabled: true
+          expire: 1440
+
+      - ssid: BB-Corp-IoT
+        comment: Printers, AV/conf-room gear, badge readers.
+        vlan_id: 18
+        vlan_enabled: true
+        bands: ["5"]
+        auth:
+          type: psk
+          psk: "!secret"
+          pairwise: ["wpa2", "wpa3"]
+
+  - name: BB-WLAN-Retail
+    applies_sitegroups: [BB-SG-RetailStandalone, BB-SG-RetailMall]
+    comment: >
+      Shared between standalone and mall-colocated formats — same brand SSIDs
+      and auth everywhere; the RF profile is what changes per format.
+    wlans:
+      - ssid: BB-Retail-POS
+        comment: >
+          Payment terminals. Hidden SSID + isolated VLAN. psk uses Mist's
+          native {{var}} substitution, resolved per-site from that site's
+          `vars.pos_psk` (see sites.yaml) — one WLAN definition, a distinct
+          real passphrase per store. In production this VLAN should also be
+          locked down with a WxRule restricting it to the payment processor's
+          subnets only — not modeled here since that's a separate API object.
+        vlan_id: 30
+        vlan_enabled: true
+        hide_ssid: true
+        bands: ["5"]
+        auth:
+          type: psk
+          psk: "{{pos_psk}}"
+          pairwise: ["wpa2", "wpa3"]
+
+      - ssid: BB-Retail-Staff
+        comment: 802.1X for store associates — placeholder RADIUS, same as corporate.
+        vlan_id: 32
+        vlan_enabled: true
+        bands: ["5"]
+        auth:
+          type: eap
+        auth_servers:
+          - host: 10.255.255.1
+            port: 1812
+            secret: REPLACE_ME
+
+      - ssid: BB-Retail-Guest
+        comment: Email-capture portal, rate-limited so guest browsing doesn't compete with POS traffic.
+        vlan_id: 35
+        vlan_enabled: true
+        bands: ["5"]
+        auth:
+          type: open
+        portal:
+          enabled: true
+          auth: email
+          email_enabled: true
+          expire: 1440
+        wlan_limit_down_enabled: true
+        wlan_limit_down: 5000
+        wlan_limit_up_enabled: true
+        wlan_limit_up: 2000
+
+  - name: BB-WLAN-PopUp
+    applies_sitegroups: [BB-SG-PopUpStores]
+    comment: >
+      Everything PSK on purpose — pop-ups need to be operational within
+      hours, with no RADIUS and no captive-portal backend to stand up.
+    wlans:
+      - ssid: BB-PopUp-Staff
+        vlan_id: 40
+        vlan_enabled: true
+        bands: ["5"]
+        auth:
+          type: psk
+          psk: "!secret"
+          pairwise: ["wpa2", "wpa3"]
+
+      - ssid: BB-PopUp-Guest
+        comment: Simple shared passphrase, rotated per event — no portal infra required.
+        vlan_id: 45
+        vlan_enabled: true
+        bands: ["5"]
+        auth:
+          type: psk
+          psk: "!secret"
+          pairwise: ["wpa2", "wpa3"]
