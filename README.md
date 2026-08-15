@@ -61,6 +61,64 @@ e.g. `BB-DC-Dallas-01-CORE-1`, `BB-DC-Dallas-01-IDF-1`.
 
 Wired VLANs intentionally use a separate numbering range (100s retail, 200s DC, 300s office) from the wireless VLANs (10-45) rather than reusing them — see `config/network_templates.yaml`. AP-facing trunk ports still need to carry the wireless VLANs, though, so each network template redeclares the relevant wireless VLAN IDs under its own `networks` block purely so port_usages can reference them by name.
 
+## Deploying real hardware to a site
+
+Everything up to this point is templates and site config — none of it does
+anything until real devices are claimed. This is the manual part that can't
+be scripted without a device's claim code/MAC in hand, and it's where the
+naming convention from the Wired section actually matters.
+
+**Switch:**
+
+1. **Power it on with a live uplink.** Plug the switch's uplink/mgmt port
+   into anything with DHCP + internet reachability (a home router, an
+   existing LAN — doesn't need to be its permanent home yet). It needs to
+   reach Mist's cloud to phone home; it won't show up in your org until it
+   does.
+2. **Claim it into the org.** In Mist: *Organization > Inventory > Claim
+   Devices*, enter the claim code printed on the device label/box (or scan
+   it with the Mist AI mobile app). It lands in inventory, unassigned to any
+   site.
+3. **Assign it to the site.** Inventory page → select the device → *Assign
+   to Site* → pick the real site (e.g. `BB-DC-Dallas-01`). It immediately
+   inherits that site's `networktemplate_id` — `BB-NT-DistributionCenter` in
+   this example.
+4. **Name it to match `switch_matching`.** This is the step that actually
+   activates the port-role config already sitting in the template. For a
+   Core+IDF site, name it `BB-DC-Dallas-01-CORE-1` (or `-IDF-1`) exactly —
+   the regex in `network_templates.yaml` only matches on hostname. Get this
+   wrong and the switch falls through to the template's `default` rule
+   instead of its role-specific one. Retail's `BB-NT-Retail` has no
+   core/IDF split, so naming there is just for your own clarity.
+5. **Verify.** The switch's port table in Mist should immediately reflect
+   the usages your `switch_matching` rule assigned — check a port you
+   expect to be `core_downlink`/`ap`/etc. and confirm it's not still on
+   defaults.
+
+**AP:**
+
+6. **Plug it into an `ap`-usage port** on the switch you just onboarded (or
+   anywhere with DHCP + internet if the switch isn't ready yet) and power it
+   on.
+7. **Claim it** the same way as the switch — same org inventory, same claim
+   code/QR flow.
+8. **Assign it to the site.** SSIDs and RF settings apply automatically the
+   moment it's assigned — the site's `rftemplate_id` and the WLAN template
+   bound to its site group are both already there waiting. Nothing further
+   needed for those two.
+9. **Set its device profile.** This is the one thing that doesn't
+   auto-apply — *Access Points* page → select the AP → *Device Profile* →
+   pick the one matching the site's category (`BB-DP-DistributionCenter-AP`
+   for a DC site, etc.). Same field via API: `PUT
+   /api/v1/sites/{site_id}/devices/{device_id}` with `{"deviceprofile_id":
+   "..."}`.
+10. **Verify.** AP should show connected/green and be broadcasting the
+    site's SSIDs within a minute or two.
+
+Once a device is claimed, `push.py` has nothing further to do with it — the
+template/site layer and the physical device layer meet at steps 3-4 and 8-9
+above, and everything past that point is standard Mist device management.
+
 ## Adding a new store or DC
 
 You never clone a WLAN/RF template per site — that's the whole point of site groups. You add one entry to `sites.yaml`:
