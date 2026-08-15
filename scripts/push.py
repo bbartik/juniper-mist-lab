@@ -125,7 +125,13 @@ def main():
 
     # 5. Network templates (pull-based, like RF profiles — bound via site.networktemplate_id)
     for nt in load("network_templates")["network_templates"]:
-        nid, action = client.upsert_by_name(client.org_path("/networktemplates"), nt["name"], clean(nt))
+        body = clean(nt)
+        if body.get("switch_mgmt", {}).get("root_password") == "!secret":
+            switch_passwords = secrets.get("switch_passwords", {})
+            if nt["name"] not in switch_passwords:
+                sys.exit(f"No switch_passwords entry for {nt['name']} in {SECRETS_PATH}")
+            body["switch_mgmt"]["root_password"] = switch_passwords[nt["name"]]
+        nid, action = client.upsert_by_name(client.org_path("/networktemplates"), nt["name"], body)
         state["network_templates"][nt["name"]] = nid
         print(f"[network_template] {nt['name']}: {action} ({nid})")
 

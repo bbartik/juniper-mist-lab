@@ -48,16 +48,18 @@ applying one means claiming a real AP into a site and setting its `deviceprofile
 Three Network Templates (`org/networktemplates`, pull-based via `site.networktemplate_id`, same mechanism as RF templates):
 
 - **`BB-NT-Retail`** — one Virtual Chassis stack (1-3 switches), flat port map, no core/IDF split.
-- **`BB-NT-DistributionCenter`** / **`BB-NT-CorporateOffice`** — Core of 2 (EVPN Multihoming) + 1 IDF. One template handles both switch roles via `switch_matching` rules keyed on switch hostname (`match_name` regex), not separate templates per role.
+- **`BB-NT-DistributionCenter`** / **`BB-NT-CorporateOffice`** — Core of 2 (EVPN Multihoming) + 1 IDF. One template handles both switch roles via `switch_matching` rules keyed on the switch's `role` device attribute, not separate templates per role.
 
-**What this does and doesn't cover:** the VLANs and per-port-role behavior (`switch_matching`) are fully modeled and bound to sites now. The actual EVPN Multihoming underlay — BGP peering, loopbacks, which physical ports become the ESI-LAG — is wizard-driven in Mist and tied to real cabling choices made when switches are claimed, so it isn't something this repo can pre-stage without hardware (same boundary as device profiles and AP claiming). What *is* pre-staged: the moment a switch is claimed and named to match the convention below, its ports already have correct role-based config.
+**What this does and doesn't cover:** the VLANs and per-port-role behavior (`switch_matching`) are fully modeled and bound to sites now. The actual EVPN Multihoming underlay — BGP peering, loopbacks, which physical ports become the ESI-LAG — is wizard-driven in Mist and tied to real cabling choices made when switches are claimed, so it isn't something this repo can pre-stage without hardware (same boundary as device profiles and AP claiming). What *is* pre-staged: the moment a switch is claimed and its `role` set to match, its ports already have correct role-based config.
 
-Naming convention the `switch_matching` rules depend on:
+Set the switch's `role` (Switch page → Properties, or `PUT /api/v1/sites/{site_id}/devices/{device_id}` with `{"role": "..."}`) to one of:
 ```
-<site-name>-CORE-1, <site-name>-CORE-2   (the EVPN Multihoming core pair)
-<site-name>-IDF-1                        (the access closet)
+role: core   — the EVPN Multihoming core pair
+role: idf    — the access closet
+role: lab    — a test/dev switch, any site, any hostname
 ```
-e.g. `BB-DC-Dallas-01-CORE-1`, `BB-DC-Dallas-01-IDF-1`.
+
+This isn't `match_name` on purpose: confirmed against real hardware that `match_name` does **not** support regex or wildcards — it's a literal string compared against the switch name starting at a fixed `match_name_offset`, which breaks the moment switch names vary in length (exactly what a `<site-name>-CORE-1` convention runs into with sites like `BB-DC-Dallas-01` vs `BB-DC-Reno-02`). `match_role` is a plain free-text field with no such fragility — the switch's hostname can be anything.
 
 Wired VLANs intentionally use a separate numbering range (100s retail, 200s DC, 300s office) from the wireless VLANs (10-45) rather than reusing them — see `config/network_templates.yaml`. AP-facing trunk ports still need to carry the wireless VLANs, though, so each network template redeclares the relevant wireless VLAN IDs under its own `networks` block purely so port_usages can reference them by name.
 
@@ -66,7 +68,7 @@ Wired VLANs intentionally use a separate numbering range (100s retail, 200s DC, 
 Everything up to this point is templates and site config — none of it does
 anything until real devices are claimed. This is the manual part that can't
 be scripted without a device's claim code/MAC in hand, and it's where the
-naming convention from the Wired section actually matters.
+switch `role` from the Wired section actually matters.
 
 **Switch:**
 
@@ -83,13 +85,16 @@ naming convention from the Wired section actually matters.
    to Site* → pick the real site (e.g. `BB-DC-Dallas-01`). It immediately
    inherits that site's `networktemplate_id` — `BB-NT-DistributionCenter` in
    this example.
-4. **Name it to match `switch_matching`.** This is the step that actually
-   activates the port-role config already sitting in the template. For a
-   Core+IDF site, name it `BB-DC-Dallas-01-CORE-1` (or `-IDF-1`) exactly —
-   the regex in `network_templates.yaml` only matches on hostname. Get this
-   wrong and the switch falls through to the template's `default` rule
-   instead of its role-specific one. Retail's `BB-NT-Retail` has no
-   core/IDF split, so naming there is just for your own clarity.
+4. **Set its `role` to match `switch_matching`.** This is the step that
+   actually activates the port-role config already sitting in the template
+   — Switch page → Properties → Role, or `PUT
+   /api/v1/sites/{site_id}/devices/{device_id}` with `{"role": "core"}` (or
+   `"idf"`, or `"lab"` for a test rig — see Wired section). Get this wrong
+   (or leave it unset) and the switch falls through to the template's
+   `default` rule instead of its role-specific one. Hostname doesn't matter
+   here — name the switch whatever's useful to you. Retail's `BB-NT-Retail`
+   has no core/IDF split, so role only matters there if you're testing with
+   a `role: lab` rig.
 5. **Verify.** The switch's port table in Mist should immediately reflect
    the usages your `switch_matching` rule assigned — check a port you
    expect to be `core_downlink`/`ap`/etc. and confirm it's not still on

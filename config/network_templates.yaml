@@ -3,18 +3,44 @@
 # rftemplate_id. See sites.yaml's site_defaults for the binding.
 #
 # Scope boundary: this defines VLANs and per-port-role behavior
-# (switch_matching, matched by switch hostname regex), which is fully
-# buildable without hardware. It does NOT configure the actual EVPN
-# Multihoming underlay (BGP peering, loopbacks, ESI-LAG member selection) —
-# that's wizard-driven in Mist and tied to physical port/cabling choices made
-# when real switches are claimed. What's here means Core/IDF ports already
-# have correct role-based config the moment that happens, provided switches
-# are named to match the switch_matching rules below.
+# (switch_matching, matched by switch role), which is fully buildable without
+# hardware. It does NOT configure the actual EVPN Multihoming underlay (BGP
+# peering, loopbacks, ESI-LAG member selection) — that's wizard-driven in
+# Mist and tied to physical port/cabling choices made when real switches are
+# claimed. What's here means Core/IDF ports already have correct role-based
+# config the moment that happens, provided the switch's `role` field (a
+# free-text device attribute, set via Switch > Properties or
+# `PUT /api/v1/sites/{site_id}/devices/{device_id} {"role": "..."}`) is set
+# to match one of the switch_matching rules below.
 #
-# Switch naming convention these templates depend on:
-#   <site-name>-CORE-1, <site-name>-CORE-2   (the EVPN Multihoming core pair)
-#   <site-name>-IDF-1                          (the access closet)
-# e.g. BB-DC-Dallas-01-CORE-1, BB-DC-Dallas-01-IDF-1
+# match_name does NOT support regex or wildcards — confirmed against real
+# hardware (three different ".*"-style patterns all silently failed to
+# match). It's a literal string compared against the switch name starting at
+# match_name_offset, which makes it fragile for names of varying length. Use
+# match_role instead — it's a plain free-text device field with no
+# offset/length dependency, confirmed live: `role: "lab"` on a real
+# EX4000-12MP correctly matched the "lab-switch" rule below. Set a switch's
+# role when claiming it:
+#   role: "core"  — the EVPN Multihoming core pair
+#   role: "idf"   — the access closet
+#   role: "lab"   — a test/dev switch, any site, any hostname
+#
+# lab-switch rule ports are for an EX4000-12MP test rig: port 1 (mge-0/0/0) =
+# ap, port 12 (ge-0/0/11) = uplink. Confirmed against real hardware: the
+# EX4000-12MP's first 4 ports are mge-0/0/0 through mge-0/0/3 (multi-gig),
+# NOT ge-0/0/0-3 — Junos names ports by speed capability, not just
+# sequential index, so don't assume uniform ge-0/0/N naming holds across
+# models. Verify against the actual Port List for any new hardware.
+#
+# rule order: Mist evaluates switch_matching rules top-to-bottom, first
+# match wins. "default" is a reserved name that must be the LAST rule in the
+# list — specific rules (core/idf/lab-switch) go before it.
+#
+# switch_mgmt.root_password: "!secret" is the local console/SSH fallback
+# password, same pattern as WLAN psks — resolved by push.py from
+# config/secrets.yaml (gitignored), keyed by template name under
+# switch_passwords. Without it, switches have no Mist-pushed local login and
+# fall back to Junos factory-default (no root password until one is set).
 
 network_templates:
 
@@ -52,6 +78,11 @@ network_templates:
     switch_matching:
       enable: true
       rules:
+        - name: lab-switch
+          match_role: "lab"
+          port_config:
+            "mge-0/0/0": { usage: ap }
+            "ge-0/0/11": { usage: uplink }
         - name: default
           port_config:
             "ge-0/0/0-3": { usage: pos }
@@ -60,6 +91,8 @@ network_templates:
             "ge-0/0/10-21": { usage: ap }
             "ge-0/0/22-23": { usage: uplink }
           ip_config: { type: dhcp, network: default }
+    switch_mgmt:
+      root_password: "!secret"
 
   - name: BB-NT-DistributionCenter
     comment: >
@@ -95,22 +128,33 @@ network_templates:
         mode: trunk
         all_networks: true
         # IDF-facing side — one port to each core member for ESI-LAG dual-homing
+      uplink:
+        mode: trunk
+        all_networks: true
+        # Generic WAN/gateway uplink — not core/IDF-specific, used by the lab rule below
     switch_matching:
       enable: true
       rules:
         - name: core-switches
-          match_name: "^BB-DC-.*-CORE.*"
+          match_role: "core"
           port_config:
             "ge-0/0/0": { usage: core_peer }
             "ge-0/0/1-2": { usage: core_downlink }
         - name: idf-switches
-          match_name: "^BB-DC-.*-IDF.*"
+          match_role: "idf"
           port_config:
             "ge-0/0/0-1": { usage: idf_uplink }
             "ge-0/0/2-9": { usage: ops }
             "ge-0/0/10-13": { usage: iot }
             "ge-0/0/14-21": { usage: ap }
+        - name: lab-switch
+          match_role: "lab"
+          port_config:
+            "mge-0/0/0": { usage: ap }
+            "ge-0/0/11": { usage: uplink }
         - name: default
+    switch_mgmt:
+      root_password: "!secret"
 
   - name: BB-NT-CorporateOffice
     comment: >
@@ -148,22 +192,31 @@ network_templates:
       idf_uplink:
         mode: trunk
         all_networks: true
+      uplink:
+        mode: trunk
+        all_networks: true
+        # Generic WAN/gateway uplink — not core/IDF-specific, used by the lab rule below
     switch_matching:
       enable: true
       rules:
         - name: core-switches
-          match_name: "^BB-Corp-.*-CORE.*"
+          match_role: "core"
           port_config:
             "ge-0/0/0": { usage: core_peer }
             "ge-0/0/1-2": { usage: core_downlink }
         - name: idf-switches
-          match_name: "^BB-Corp-.*-IDF.*"
+          match_role: "idf"
           port_config:
             "ge-0/0/0-1": { usage: idf_uplink }
             "ge-0/0/2-13": { usage: staff }
             "ge-0/0/14-17": { usage: guest }
             "ge-0/0/18-19": { usage: iot }
             "ge-0/0/20-23": { usage: ap }
+        - name: lab-switch
+          match_role: "lab"
+          port_config:
+            "mge-0/0/0": { usage: ap }
+            "ge-0/0/11": { usage: uplink }
         - name: default
     radius_config:
       enabled: true
@@ -171,3 +224,5 @@ network_templates:
         - host: 10.255.255.1
           port: 1812
           secret: REPLACE_ME
+    switch_mgmt:
+      root_password: "!secret"
