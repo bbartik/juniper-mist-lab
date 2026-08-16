@@ -61,16 +61,16 @@ network_templates:
     port_usages:
       pos:
         mode: access
-        native_network: wired_pos
+        port_network: wired_pos
       staff:
         mode: access
-        native_network: wired_staff
+        port_network: wired_staff
       iot:
         mode: access
-        native_network: wired_iot
+        port_network: wired_iot
       ap:
         mode: trunk
-        native_network: wired_mgmt
+        port_network: wired_mgmt
         networks: [wifi_retail_pos, wifi_retail_staff, wifi_retail_guest]
       uplink:
         mode: trunk
@@ -82,8 +82,8 @@ network_templates:
           match_role: "lab"
           port_config:
             "mge-0/0/0": { usage: ap }
-            "ge-0/0/4": { usage: wired_staff }
-            "ge-0/0/5": { usage: wired_iot }
+            "ge-0/0/4": { usage: staff }
+            "ge-0/0/5": { usage: iot }
             "ge-0/0/11": { usage: uplink }
         - name: default
           port_config:
@@ -93,6 +93,9 @@ network_templates:
             "ge-0/0/10-21": { usage: ap }
             "ge-0/0/22-23": { usage: uplink }
           ip_config: { type: dhcp, network: default }
+    dhcp_snooping:
+      enabled: true
+      all_networks: true
     switch_mgmt:
       root_password: "!secret"
 
@@ -110,13 +113,13 @@ network_templates:
     port_usages:
       ops:
         mode: access
-        native_network: wired_ops
+        port_network: wired_ops
       iot:
         mode: access
-        native_network: wired_iot
+        port_network: wired_iot
       ap:
         mode: trunk
-        native_network: wired_mgmt
+        port_network: wired_mgmt
         networks: [wifi_dc_ops, wifi_dc_iot]
       core_peer:
         mode: trunk
@@ -153,10 +156,13 @@ network_templates:
           match_role: "lab"
           port_config:
             "mge-0/0/0": { usage: ap }
-            "ge-0/0/4": { usage: wired_staff }
-            "ge-0/0/5": { usage: wired_iot }
+            "ge-0/0/4": { usage: staff }
+            "ge-0/0/5": { usage: iot }
             "ge-0/0/11": { usage: uplink }
         - name: default
+    dhcp_snooping:
+      enabled: true
+      all_networks: true
     switch_mgmt:
       root_password: "!secret"
 
@@ -176,16 +182,16 @@ network_templates:
     port_usages:
       staff:
         mode: access
-        native_network: wired_staff
+        port_network: wired_staff
       guest:
         mode: access
-        native_network: wired_guest
+        port_network: wired_guest
       iot:
         mode: access
-        native_network: wired_iot
+        port_network: wired_iot
       ap:
         mode: trunk
-        native_network: wired_mgmt
+        port_network: wired_mgmt
         networks: [wifi_corp_staff, wifi_corp_guest, wifi_corp_iot]
       core_peer:
         mode: trunk
@@ -220,8 +226,8 @@ network_templates:
           match_role: "lab"
           port_config:
             "mge-0/0/0": { usage: ap }
-            "ge-0/0/4": { usage: wired_staff }
-            "ge-0/0/5": { usage: wired_iot }
+            "ge-0/0/4": { usage: staff }
+            "ge-0/0/5": { usage: iot }
             "ge-0/0/11": { usage: uplink }
         - name: default
     radius_config:
@@ -230,5 +236,8 @@ network_templates:
         - host: 10.255.255.1
           port: 1812
           secret: REPLACE_ME
+    dhcp_snooping:
+      enabled: true
+      all_networks: true
     switch_mgmt:
       root_password: "!secret"
