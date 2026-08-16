@@ -82,6 +82,8 @@ network_templates:
           match_role: "lab"
           port_config:
             "mge-0/0/0": { usage: ap }
+            "ge-0/0/4": { usage: wired_staff }
+            "ge-0/0/5": { usage: wired_iot }
             "ge-0/0/11": { usage: uplink }
         - name: default
           port_config:
@@ -151,6 +153,8 @@ network_templates:
           match_role: "lab"
           port_config:
             "mge-0/0/0": { usage: ap }
+            "ge-0/0/4": { usage: wired_staff }
+            "ge-0/0/5": { usage: wired_iot }
             "ge-0/0/11": { usage: uplink }
         - name: default
     switch_mgmt:
@@ -216,6 +220,8 @@ network_templates:
           match_role: "lab"
           port_config:
             "mge-0/0/0": { usage: ap }
+            "ge-0/0/4": { usage: wired_staff }
+            "ge-0/0/5": { usage: wired_iot }
             "ge-0/0/11": { usage: uplink }
         - name: default
     radius_config:
