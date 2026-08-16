@@ -75,6 +75,7 @@ network_templates:
       uplink:
         mode: trunk
         all_networks: true
+        allow_dhcpd: true
     switch_matching:
       enable: true
       rules:
@@ -124,18 +125,22 @@ network_templates:
       core_peer:
         mode: trunk
         all_networks: true
+        allow_dhcpd: true
         # Core-to-core peer link (ICL / EVPN Multihoming peering)
       core_downlink:
         mode: trunk
         all_networks: true
+        allow_dhcpd: true
         # Core-facing side of the core<->IDF links
       idf_uplink:
         mode: trunk
         all_networks: true
+        allow_dhcpd: true
         # IDF-facing side — one port to each core member for ESI-LAG dual-homing
       uplink:
         mode: trunk
         all_networks: true
+        allow_dhcpd: true
         # Generic WAN/gateway uplink — not core/IDF-specific, used by the lab rule below
     switch_matching:
       enable: true
@@ -196,15 +201,19 @@ network_templates:
       core_peer:
         mode: trunk
         all_networks: true
+        allow_dhcpd: true
       core_downlink:
         mode: trunk
         all_networks: true
+        allow_dhcpd: true
       idf_uplink:
         mode: trunk
         all_networks: true
+        allow_dhcpd: true
       uplink:
         mode: trunk
         all_networks: true
+        allow_dhcpd: true
         # Generic WAN/gateway uplink — not core/IDF-specific, used by the lab rule below
     switch_matching:
       enable: true

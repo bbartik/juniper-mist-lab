@@ -50,11 +50,15 @@ wlan_templates:
         comment: >
           802.1X against corporate IdP/NPS. auth_servers is a placeholder —
           replace host/secret with the real RADIUS server before go-live.
+          pairwise is pinned to wpa3-only (no wpa2 transition) because bands
+          includes 6 — 6GHz/Wi-Fi 7 mandates pure WPA3; a mixed WPA2/WPA3
+          WLAN is silently dropped from any AP radio advertising that band.
         vlan_id: 10
         vlan_enabled: true
         bands: ["5", "6"]
         auth:
           type: eap
+          pairwise: ["wpa3"]
         auth_servers:
           - host: 10.255.255.1
             port: 1812
